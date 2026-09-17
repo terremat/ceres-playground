@@ -19,3 +19,11 @@ pixi install
 ```
 
 Pixi will create an isolated project environment and install the required development dependencies.
+
+## Building
+
+Configure and build the project through the provided Pixi task:
+
+```bash
+pixi run build
+```

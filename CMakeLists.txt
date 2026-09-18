@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(rerun_sdk REQUIRED)
 
 add_executable(hello_ceres
     src/01_hello_ceres.cpp
@@ -15,4 +16,13 @@ add_executable(hello_ceres
 target_link_libraries(hello_ceres
     PRIVATE
         Ceres::ceres
+)
+
+add_executable(hello_rerun
+    src/02_hello_rerun.cpp
+)
+
+target_link_libraries(hello_rerun
+    PRIVATE
+        rerun_sdk
 )

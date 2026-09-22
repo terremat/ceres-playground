@@ -71,3 +71,7 @@ Testing/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# Custom data files
+data/
+

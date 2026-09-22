@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Ceres REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(rerun_sdk REQUIRED)
 
@@ -25,4 +26,14 @@ add_executable(hello_rerun
 target_link_libraries(hello_rerun
     PRIVATE
         rerun_sdk
+)
+
+add_executable(multicamera_calibration
+    src/03_multicamera_calibration.cpp
+)
+
+target_link_libraries(multicamera_calibration
+    PRIVATE
+        Ceres::ceres
+        Eigen3::Eigen
 )

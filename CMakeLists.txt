@@ -36,4 +36,5 @@ target_link_libraries(multicamera_calibration
     PRIVATE
         Ceres::ceres
         Eigen3::Eigen
+        rerun_sdk
 )

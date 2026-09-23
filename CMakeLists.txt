@@ -20,7 +20,7 @@ target_link_libraries(hello_ceres
 )
 
 add_executable(hello_rerun
-    src/02_hello_rerun.cpp
+    examples/hello_rerun.cpp
 )
 
 target_link_libraries(hello_rerun
@@ -28,11 +28,16 @@ target_link_libraries(hello_rerun
         rerun_sdk
 )
 
-add_executable(multicamera_calibration
-    src/03_multicamera_calibration.cpp
+add_executable(pose_estimation
+    src/02_pose_estimation.cpp
 )
 
-target_link_libraries(multicamera_calibration
+target_include_directories(pose_estimation
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(pose_estimation
     PRIVATE
         Ceres::ceres
         Eigen3::Eigen

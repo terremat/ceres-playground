@@ -27,3 +27,24 @@ Configure and build the project through the provided Pixi task:
 ```bash
 pixi run build
 ```
+
+## Examples
+
+The numbered files in `src/` introduce Ceres concepts in sequence:
+
+- `01_hello_ceres.cpp` (`hello_ceres`): optimize one scalar with one residual using `AutoDiffCostFunction<..., 1, 1>`.
+- `02_pose_estimation.cpp` (`pose_estimation`): optimize six pose parameters per camera with many 2D reprojection residuals using `AutoDiffCostFunction<..., 2, 6>`. Intrinsics, landmarks, and observations stay fixed.
+
+Both lessons keep the cost functor, problem construction, solver options, and solve call visible in the executable. Shared types, geometry, synthetic data generation, RMSE metrics, and Rerun helpers live in `include/ceres_playground/`.
+
+`examples/hello_rerun.cpp` (`hello_rerun`) is a separate visualization smoke test.
+
+After building, run an example through the Pixi environment:
+
+```bash
+pixi run ./build/hello_ceres
+pixi run ./build/pose_estimation
+pixi run ./build/hello_rerun
+```
+
+The pose estimation and Rerun examples launch the Rerun viewer.

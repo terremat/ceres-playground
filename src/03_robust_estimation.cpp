@@ -141,6 +141,11 @@ int main() {
     // 4. Build the problem. Only the six camera parameters are variable.
     ceres::Problem problem;
 
+
+    auto* loss_function =
+        new ceres::HuberLoss(5.0);
+
+
     for (const auto& obs : observations_noisy) {
         const auto& point = landmarks_W[obs.landmark_id];
         const auto& pixel = obs.pixel;
@@ -157,7 +162,7 @@ int main() {
 
         problem.AddResidualBlock(
             cost_function,
-            nullptr,
+            loss_function,
             cameras_estimated[obs.camera_id].values.data()
         );
     }

@@ -43,3 +43,19 @@ target_link_libraries(pose_estimation
         Eigen3::Eigen
         rerun_sdk
 )
+
+add_executable(robust_estimation
+    src/03_robust_estimation.cpp
+)
+
+target_include_directories(robust_estimation
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(robust_estimation
+    PRIVATE
+        Ceres::ceres
+        Eigen3::Eigen
+        rerun_sdk
+)

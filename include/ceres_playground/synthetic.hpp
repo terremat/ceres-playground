@@ -125,3 +125,20 @@ inline std::vector<CameraParameters> PerturbCameras(
 
     return cameras_initial;
 }
+
+
+
+inline void AddGaussianNoise(
+    std::vector<Observation>& observations,
+    double sigma_pixels,
+    std::mt19937& rng) {
+
+    std::normal_distribution<double> noise(
+        0.0,
+        sigma_pixels);
+
+    for (auto& observation : observations) {
+        observation.pixel.x() += noise(rng);
+        observation.pixel.y() += noise(rng);
+    }
+}

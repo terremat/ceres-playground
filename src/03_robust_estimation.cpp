@@ -89,6 +89,9 @@ int main() {
 
     // 1. Generate synthetic ground truth.
     constexpr int kNumLandmarks = 100;
+    constexpr double kNoiseSigmaPixels = 1.0;
+    constexpr double kOutlierRatio = 0.10;
+    constexpr double kOutlierSigmaPixels = 50.0;
     std::mt19937 rng(42);
 
     // Generate 3D landmarks in the world frame
@@ -113,7 +116,13 @@ int main() {
 
     AddGaussianNoise(
         observations_noisy,
-        1.0,
+        kNoiseSigmaPixels,
+        rng);
+
+    AddOutliers(
+        observations_noisy,
+        kOutlierRatio,         // ~10% observations
+        kOutlierSigmaPixels,   // large pixel error
         rng);
 
     // 3. Create perturbed initial camera estimates.
@@ -187,6 +196,18 @@ int main() {
         << initial_rmse
         << " px -> "
         << final_rmse
+        << " px\n";
+
+    const double gt_rmse =
+        ComputeReprojectionRMSE(
+            K,
+            cameras_estimated,
+            landmarks_W,
+            observations_gt);
+    
+    std::cout
+        << "Reprojection RMSE (ground truth observations): "
+        << gt_rmse
         << " px\n";
 
     // Compare ground-truth, initial, and optimized poses in separate Rerun groups.

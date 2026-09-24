@@ -142,3 +142,28 @@ inline void AddGaussianNoise(
         observation.pixel.y() += noise(rng);
     }
 }
+
+// outlier_ratio: fraction of observations to be replaced with outliers
+// outlier_sigma_pixels: standard deviation of the Gaussian noise added to outliers
+inline void AddOutliers(
+    std::vector<Observation>& observations,
+    double outlier_ratio,
+    double outlier_sigma_pixels,
+    std::mt19937& rng) {
+
+    std::bernoulli_distribution is_outlier(outlier_ratio);
+
+    std::normal_distribution<double> outlier_noise(
+        0.0,
+        outlier_sigma_pixels);
+
+    for (auto& observation : observations) {
+
+        if (!is_outlier(rng)) {
+            continue;
+        }
+
+        observation.pixel.x() += outlier_noise(rng);
+        observation.pixel.y() += outlier_noise(rng);
+    }
+}

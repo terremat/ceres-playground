@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Ceres REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(rerun_sdk REQUIRED)
 
@@ -19,10 +20,26 @@ target_link_libraries(hello_ceres
 )
 
 add_executable(hello_rerun
-    src/02_hello_rerun.cpp
+    examples/hello_rerun.cpp
 )
 
 target_link_libraries(hello_rerun
     PRIVATE
+        rerun_sdk
+)
+
+add_executable(pose_estimation
+    src/02_pose_estimation.cpp
+)
+
+target_include_directories(pose_estimation
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(pose_estimation
+    PRIVATE
+        Ceres::ceres
+        Eigen3::Eigen
         rerun_sdk
 )

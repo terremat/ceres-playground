@@ -85,6 +85,29 @@ private:
     CameraIntrinsics K_;
 };
 
+
+
+class PoseIterationCallback : public ceres::IterationCallback {
+public:
+    explicit PoseIterationCallback(
+        const std::vector<CameraParameters>& cameras)
+        : cameras_(cameras) {}
+
+    ceres::CallbackReturnType operator()(
+        const ceres::IterationSummary& summary) override {
+
+        std::cout
+            << "[callback] iteration "
+            << summary.iteration
+            << '\n';
+
+        return ceres::SOLVER_CONTINUE;
+    }
+
+private:
+    const std::vector<CameraParameters>& cameras_;
+};
+
 int main() {
 
     // 1. Generate synthetic ground truth.
@@ -175,6 +198,12 @@ int main() {
 
     options.minimizer_progress_to_stdout =
         true;
+    
+    // Force memory update of the camera parameters after each iteration, so that we can visualize the intermediate poses.
+    options.update_state_every_iteration = true;
+    
+    PoseIterationCallback callback(cameras_estimated);
+    options.callbacks.push_back(&callback);
 
     // 6. Solve. Ceres updates the camera parameters in place.
     ceres::Solver::Summary summary;

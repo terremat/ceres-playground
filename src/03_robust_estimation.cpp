@@ -14,10 +14,18 @@
 #include <random>
 #include <string>
 
-// Pose-only estimation: intrinsics, 3D landmarks, and observations are fixed.
-// Each camera has six variable parameters: angle-axis rotation and translation.
-// Unlike lesson 01's scalar residual, each observation produces two pixel residuals.
-// This is not bundle adjustment or full multicamera calibration.
+// Robust camera pose estimation with noisy synthetic observations.
+//
+// This lesson extends the pose-only estimation problem from lesson 02:
+// - camera poses are the only optimized parameters;
+// - intrinsics and 3D landmarks remain fixed;
+// - Gaussian pixel noise makes the observations imperfect;
+// - a small fraction of observations are corrupted by large outliers;
+// - Huber loss reduces the influence of those outliers;
+// - iteration callbacks expose the optimization progress.
+//
+// The estimated poses are also logged to Rerun at every solver iteration,
+// while ground-truth geometry remains static for comparison.
 
 // Ceres cost functor for reprojection error of a single landmark observation.
 struct ReprojectionError {
@@ -89,10 +97,6 @@ private:
 
 class PoseIterationCallback : public ceres::IterationCallback {
 public:
-    explicit PoseIterationCallback(
-        const std::vector<CameraParameters>& cameras)
-        : cameras_(cameras) {}
-
     ceres::CallbackReturnType operator()(
         const ceres::IterationSummary& summary) override {
 
@@ -103,9 +107,6 @@ public:
 
         return ceres::SOLVER_CONTINUE;
     }
-
-private:
-    const std::vector<CameraParameters>& cameras_;
 };
 
 int main() {
@@ -186,6 +187,7 @@ int main() {
     // 4. Build the problem. Only the six camera parameters are variable.
     ceres::Problem problem;
 
+    // Use a robust Huber loss to reduce the influence of large residuals produced by outlier observations.
     auto* loss_function =
         new ceres::HuberLoss(5.0);
 
@@ -220,12 +222,15 @@ int main() {
     options.minimizer_progress_to_stdout =
         true;
     
-    // Force memory update of the camera parameters after each iteration, so that we can visualize the intermediate poses.
+    // Make the current parameter values available after every iteration
+    // so the callbacks can inspect and visualize the evolving camera poses.    
     options.update_state_every_iteration = true;
     
-    PoseIterationCallback callback(cameras_estimated);
+    // Simple callback used to demonstrate the Ceres callback API.
+    PoseIterationCallback callback;
     options.callbacks.push_back(&callback);
 
+    // Reusable visualization callback that logs the current poses to Rerun.
     RerunPoseIterationCallback rerun_callback(
         rec,
         cameras_estimated,

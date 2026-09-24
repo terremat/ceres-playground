@@ -161,9 +161,30 @@ int main() {
             landmarks_W,
             observations_noisy);
 
+
+    //  Visualize the initial state in Rerun.
+    const auto rec =
+        rerun::RecordingStream(
+            "robust_estimation");
+
+    rec.spawn().exit_on_failure();
+
+    LogLandmarks(rec, landmarks_W, true);
+
+    for (std::size_t camera_id = 0;
+         camera_id < cameras_gt.size();
+         ++camera_id) {
+
+        const std::string camera_name = "cam" + std::to_string(camera_id);
+
+        LogCamera(rec, "world/cameras/gt/" + camera_name,
+                  cameras_gt[camera_id], K, true);
+        LogCamera(rec, "world/cameras/initial/" + camera_name,
+                  ToCameraPose(cameras_initial[camera_id]), K, true);
+    }
+
     // 4. Build the problem. Only the six camera parameters are variable.
     ceres::Problem problem;
-
 
     auto* loss_function =
         new ceres::HuberLoss(5.0);
@@ -205,6 +226,12 @@ int main() {
     PoseIterationCallback callback(cameras_estimated);
     options.callbacks.push_back(&callback);
 
+    RerunPoseIterationCallback rerun_callback(
+        rec,
+        cameras_estimated,
+        K);
+    options.callbacks.push_back(&rerun_callback);
+
     // 6. Solve. Ceres updates the camera parameters in place.
     ceres::Solver::Summary summary;
 
@@ -243,29 +270,6 @@ int main() {
         << "Reprojection RMSE (ground truth observations): "
         << gt_rmse
         << " px\n";
-
-    // Compare ground-truth, initial, and optimized poses in separate Rerun groups.
-    const auto rec =
-        rerun::RecordingStream(
-            "pose_estimation");
-
-    rec.spawn().exit_on_failure();
-
-    LogLandmarks(rec, landmarks_W);
-
-    for (std::size_t camera_id = 0;
-         camera_id < cameras_gt.size();
-         ++camera_id) {
-
-        const std::string camera_name = "cam" + std::to_string(camera_id);
-
-        LogCamera(rec, "world/cameras/gt/" + camera_name,
-                  cameras_gt[camera_id], K);
-        LogCamera(rec, "world/cameras/initial/" + camera_name,
-                  ToCameraPose(cameras_initial[camera_id]), K);
-        LogCamera(rec, "world/cameras/optimized/" + camera_name,
-                  ToCameraPose(cameras_estimated[camera_id]), K);
-    }
 
     return 0;
 }

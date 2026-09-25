@@ -1,3 +1,9 @@
+// Bundle adjustment extends pose estimation by optimizing 3D landmarks too.
+// Each 2D reprojection residual connects a 6-parameter camera pose (angle-axis
+// and translation) to a 3-parameter landmark. Intrinsics and observations stay fixed.
+// Two ground-truth camera poses anchor the world frame and metric scale;
+// the remaining camera pose and the landmarks are recovered from perturbed estimates.
+
 #include "ceres_playground/types.hpp"
 #include "ceres_playground/geometry.hpp"
 #include "ceres_playground/metrics.hpp"
@@ -14,40 +20,27 @@
 #include <random>
 #include <string>
 
-// Pose-only estimation: intrinsics, 3D landmarks, and observations are fixed.
-// Each camera has six variable parameters: angle-axis rotation and translation.
-// Unlike lesson 01's scalar residual, each observation produces two pixel residuals.
-// This is not bundle adjustment or full multicamera calibration.
-
 // Ceres cost functor for reprojection error of a single landmark observation.
 struct ReprojectionError {
 
     ReprojectionError(
-        const Eigen::Vector3d& point_world,
         const Eigen::Vector2d& observed_pixel,
         const CameraIntrinsics& K)
-        : point_world_(point_world),
-          observed_pixel_(observed_pixel),
+        : observed_pixel_(observed_pixel),
           K_(K) {}
 
     template <typename T>
     bool operator()(
         const T* const camera,
+        const T* const landmark,
         T* residuals) const {
 
-        // 3D landmark expressed in world coordinates.
-        const T point_world[3] = {
-            T(point_world_.x()),
-            T(point_world_.y()),
-            T(point_world_.z())
-        };
-
-        // Rotate P_W into the camera frame.
+        // Rotate the variable landmark from world coordinates into the camera frame.
         T point_camera[3];
 
         ceres::AngleAxisRotatePoint(
             camera,
-            point_world,
+            landmark,
             point_camera);
 
         // Translation t_CW.
@@ -80,7 +73,6 @@ struct ReprojectionError {
     }
 
 private:
-    Eigen::Vector3d point_world_;
     Eigen::Vector2d observed_pixel_;
     CameraIntrinsics K_;
 };
@@ -89,10 +81,11 @@ int main() {
 
     // 1. Generate synthetic ground truth.
     constexpr int kNumLandmarks = 100;
+    constexpr double kLandmarkNoiseMeters = 0.1;
     std::mt19937 rng(42);
 
-    // Generate 3D landmarks in the world frame
-    const auto landmarks_W =
+    // Generate ground-truth 3D landmarks in the world frame.
+    const auto landmarks_gt =
         GenerateLandmarks(kNumLandmarks, rng);
 
     // Ground-truth camera rig.
@@ -100,38 +93,58 @@ int main() {
     const auto cameras_gt =
         GenerateCameras();
 
-    // 2. Generate fixed observations from the ground truth.
+    // 2. Generate fixed observations from ground-truth cameras and landmarks.
     const auto observations =
         GenerateObservations(
             K,
             cameras_gt,
-            landmarks_W);
+            landmarks_gt);
 
-    // 3. Create perturbed initial camera estimates.
+    // 3. Perturb both camera poses and landmarks to create initial estimates.
     auto cameras_estimated =
         PerturbCameras(cameras_gt, rng);
 
+    auto landmarks_estimated =
+        PerturbLandmarks(
+            landmarks_gt,
+            kLandmarkNoiseMeters,
+            rng);
+
+    // Restore the first two poses to ground truth before fixing them below.
+    cameras_estimated[0] =
+        ToParameters(cameras_gt[0]);
+
+    cameras_estimated[1] =
+        ToParameters(cameras_gt[1]);
+
     const auto cameras_initial = cameras_estimated;  // snapshot before optimization
 
-    const double initial_rmse =
+    // Evaluate the initial reprojection error using the perturbed state.
+    const double initial_reprojection_rmse =
         ComputeReprojectionRMSE(
             K,
             cameras_estimated,
-            landmarks_W,
+            landmarks_estimated,
             observations);
 
-    // 4. Build the problem. Only the six camera parameters are variable.
+    const auto landmarks_initial = landmarks_estimated;
+    
+    const double initial_landmark_rmse =
+        ComputeLandmarkRMSE(
+            landmarks_estimated,
+            landmarks_gt);
+
+    // 4. Build the problem with camera and landmark parameter blocks.
     ceres::Problem problem;
 
     for (const auto& obs : observations) {
-        const auto& point = landmarks_W[obs.landmark_id];
         const auto& pixel = obs.pixel;
 
-        // Two residuals (u, v), one parameter block of size six.
+        // Two residuals (u, v) depend on two parameter blocks:
+        // six camera parameters and three landmark coordinates.
         ceres::CostFunction* cost_function =
-            new ceres::AutoDiffCostFunction<ReprojectionError, 2, 6>(
+            new ceres::AutoDiffCostFunction<ReprojectionError, 2, 6, 3>(
                 new ReprojectionError(
-                    point,
                     pixel,
                     K
                 )
@@ -140,11 +153,21 @@ int main() {
         problem.AddResidualBlock(
             cost_function,
             nullptr,
-            cameras_estimated[obs.camera_id].values.data()
+            cameras_estimated[obs.camera_id].values.data(),     // 6
+            landmarks_estimated[obs.landmark_id].data()         // 3
         );
     }
 
-    // 5. Configure the solver, just as in lesson 01.
+    // Fix camera 0 at its ground-truth pose to anchor the world frame.
+    problem.SetParameterBlockConstant(
+        cameras_estimated[0].values.data());
+    
+    // Fix camera 1 at ground truth too: the known baseline sets metric scale.
+    // Together these anchors remove gauge freedom.
+    problem.SetParameterBlockConstant(
+        cameras_estimated[1].values.data());
+
+    // 5. Keep DENSE_QR for this lesson; Schur solvers come later.
     ceres::Solver::Options options;
 
     options.linear_solver_type =
@@ -153,7 +176,7 @@ int main() {
     options.minimizer_progress_to_stdout =
         true;
 
-    // 6. Solve. Ceres updates the camera parameters in place.
+    // 6. Solve. Ceres updates the remaining camera pose and landmarks in place.
     ceres::Solver::Summary summary;
 
     ceres::Solve(
@@ -166,28 +189,58 @@ int main() {
         << summary.BriefReport()
         << '\n';
 
-    const double final_rmse =
+    const double final_reprojection_rmse =
         ComputeReprojectionRMSE(
             K,
             cameras_estimated,
-            landmarks_W,
+            landmarks_estimated,
             observations);
 
     std::cout
         << "Reprojection RMSE: "
-        << initial_rmse
+        << initial_reprojection_rmse
         << " px -> "
-        << final_rmse
+        << final_reprojection_rmse
         << " px\n";
 
-    // Compare ground-truth, initial, and optimized poses in separate Rerun groups.
+
+    const double final_landmark_rmse =
+        ComputeLandmarkRMSE(
+            landmarks_estimated,
+            landmarks_gt);
+
+    std::cout
+        << "Landmark RMSE: "
+        << initial_landmark_rmse
+        << " m -> "
+        << final_landmark_rmse
+        << " m\n";
+        
+
+    // Compare ground-truth, initial, and optimized cameras and landmarks in Rerun.
     const auto rec =
         rerun::RecordingStream(
-            "pose_estimation");
+            "bundle_adjustment");
 
     rec.spawn().exit_on_failure();
 
-    LogLandmarks(rec, "world/landmarks/gt", landmarks_W, true);
+    LogLandmarks(
+        rec,
+        "world/landmarks/gt",
+        landmarks_gt,
+        true);
+
+    LogLandmarks(
+        rec,
+        "world/landmarks/initial",
+        landmarks_initial,
+        true);
+
+    LogLandmarks(
+        rec,
+        "world/landmarks/optimized",
+        landmarks_estimated,
+        true);
 
     for (std::size_t camera_id = 0;
          camera_id < cameras_gt.size();

@@ -12,6 +12,7 @@
 
 inline void LogLandmarks(
     const rerun::RecordingStream& rec,
+    const std::string& path,
     const std::vector<Eigen::Vector3d>& landmarks,
     bool is_static = false) {
 
@@ -27,11 +28,11 @@ inline void LogLandmarks(
 
     if (is_static) {
         rec.log_static(
-            "world/landmarks",
+            path,
             rerun::Points3D(positions));
     } else {
         rec.log(
-            "world/landmarks",
+            path,
             rerun::Points3D(positions));
     }
 }

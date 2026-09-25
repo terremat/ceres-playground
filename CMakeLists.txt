@@ -59,3 +59,19 @@ target_link_libraries(robust_estimation
         Eigen3::Eigen
         rerun_sdk
 )
+
+add_executable(bundle_adjustment
+    src/04_bundle_adjustment.cpp
+)
+
+target_include_directories(bundle_adjustment
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(bundle_adjustment
+    PRIVATE
+        Ceres::ceres
+        Eigen3::Eigen
+        rerun_sdk
+)

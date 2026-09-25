@@ -9,15 +9,19 @@
 
 #include <Eigen/Core>
 
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <random>
 #include <string>
+#include <utility>
+#include <vector>
 
-// Pose-only estimation: intrinsics, 3D landmarks, and observations are fixed.
-// Each camera has six variable parameters: angle-axis rotation and translation.
-// Unlike lesson 01's scalar residual, each observation produces two pixel residuals.
-// This is not bundle adjustment or full multicamera calibration.
+// This lesson introduces noisy pixel measurements, whitened residuals, and pose covariance.
+// Reprojection residuals are divided by the assumed pixel noise sigma so that
+// Ceres covariance reflects the measurement uncertainty.
+// Only camera poses are optimized; intrinsics and 3D landmarks remain fixed.
+// Camera 0's 6x6 covariance describes its angle-axis and translation parameters.
 
 // Ceres cost functor for reprojection error of a single landmark observation.
 struct ReprojectionError {
@@ -94,12 +98,12 @@ int main() {
 
     // 1. Generate synthetic ground truth.
     constexpr int kNumLandmarks = 100;
-    constexpr double kNoiseSigmaPixels = 5.0;
+    constexpr double kNoiseSigmaPixels = 1.0;
     std::mt19937 rng(42);
 
     // Generate 3D landmarks in the world frame
     const auto landmarks_gt =
-        GenerateConcentratedLandmarks(kNumLandmarks, rng);
+        GenerateLandmarks(kNumLandmarks, rng);
 
     // Ground-truth camera rig.
     const CameraIntrinsics K;
@@ -234,6 +238,11 @@ int main() {
         covariance_matrix);
 
     std::cout
+        << "\nAssumed pixel noise sigma: "
+        << kNoiseSigmaPixels
+        << " px\n";
+
+    std::cout
         << "\nCamera 0 covariance:\n";
 
     for (int row = 0; row < 6; ++row) {
@@ -264,7 +273,7 @@ int main() {
     // Compare ground-truth, initial, and optimized poses in separate Rerun groups.
     const auto rec =
         rerun::RecordingStream(
-            "pose_estimation");
+            "covariance");
 
     rec.spawn().exit_on_failure();
 

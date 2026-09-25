@@ -119,12 +119,12 @@ int main() {
 
     const auto cameras_initial = cameras_estimated;  // snapshot before optimization
 
-    // This initial metric evaluates perturbed cameras against ground-truth landmarks.
+    // Evaluate the initial reprojection error using the perturbed state.
     const double initial_reprojection_rmse =
         ComputeReprojectionRMSE(
             K,
             cameras_estimated,
-            landmarks_gt,
+            landmarks_estimated,
             observations);
 
     const auto landmarks_initial = landmarks_estimated;

@@ -88,13 +88,13 @@ private:
 int main() {
 
     // 1. Generate synthetic ground truth.
-    constexpr int kNumLandmarks = 100;
+    constexpr int kNumLandmarks = 10;
     constexpr double kNoiseSigmaPixels = 1.0;
     std::mt19937 rng(42);
 
     // Generate 3D landmarks in the world frame
     const auto landmarks_gt =
-        GenerateLandmarks(kNumLandmarks, rng);
+        GenerateConcentratedLandmarks(kNumLandmarks, rng);
 
     // Ground-truth camera rig.
     const CameraIntrinsics K;
@@ -170,6 +170,29 @@ int main() {
         &problem,
         &summary);
 
+    // Covariance computation, useful for uncertainty analysis.
+    ceres::Covariance::Options covariance_options;
+    ceres::Covariance covariance(covariance_options);
+    
+    const double* camera_parameters =
+        cameras_estimated[0].values.data();
+
+    // asking Cov(camera0, camera0) 6x6 matrix
+    std::vector<std::pair<const double*, const double*>>
+        covariance_blocks = {
+            {camera_parameters, camera_parameters}
+        };
+
+    if (!covariance.Compute(
+            covariance_blocks,
+            &problem)) {
+
+        std::cerr
+            << "Failed to compute covariance.\n";
+
+        return 1;
+    }
+
     // 7. Evaluate and visualize.
     std::cout
         << summary.BriefReport()
@@ -197,6 +220,41 @@ int main() {
         << " px | "
         << gt_rmse
         << " px (GT)\n";
+
+    double covariance_matrix[6 * 6];
+
+    covariance.GetCovarianceBlock(
+        camera_parameters,
+        camera_parameters,
+        covariance_matrix);
+
+    std::cout
+        << "\nCamera 0 covariance:\n";
+
+    for (int row = 0; row < 6; ++row) {
+        for (int col = 0; col < 6; ++col) {
+            std::cout
+                << covariance_matrix[row * 6 + col]
+                << '\t';
+        }
+
+        std::cout << '\n';
+    }
+    std::cout
+        << "\nCamera 0 standard deviations:\n";
+
+    std::cout
+        << "rotation [rad]: "
+        << std::sqrt(covariance_matrix[0 * 6 + 0]) << ' '
+        << std::sqrt(covariance_matrix[1 * 6 + 1]) << ' '
+        << std::sqrt(covariance_matrix[2 * 6 + 2]) << '\n';
+
+    std::cout
+        << "translation [m]: "
+        << std::sqrt(covariance_matrix[3 * 6 + 3]) << ' '
+        << std::sqrt(covariance_matrix[4 * 6 + 4]) << ' '
+        << std::sqrt(covariance_matrix[5 * 6 + 5]) << '\n';
+
 
     // Compare ground-truth, initial, and optimized poses in separate Rerun groups.
     const auto rec =

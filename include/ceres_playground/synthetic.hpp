@@ -28,6 +28,28 @@ inline std::vector<Eigen::Vector3d> GenerateLandmarks(
     return landmarks;
 }
 
+inline std::vector<Eigen::Vector3d> GenerateConcentratedLandmarks(
+    int num_landmarks,
+    std::mt19937& rng) {
+
+    std::uniform_real_distribution<double> x_distribution(-0.1, 0.1);
+    std::uniform_real_distribution<double> y_distribution(-0.1, 0.1);
+    std::uniform_real_distribution<double> z_distribution(5.0, 6.0);
+
+    std::vector<Eigen::Vector3d> landmarks;
+    landmarks.reserve(num_landmarks);
+
+    for (int i = 0; i < num_landmarks; ++i) {
+        landmarks.emplace_back(
+            x_distribution(rng),
+            y_distribution(rng),
+            z_distribution(rng));
+    }
+
+    return landmarks;
+}
+
+
 inline std::vector<CameraPose> GenerateCameras() {
 
     const Eigen::Matrix3d R_CW =

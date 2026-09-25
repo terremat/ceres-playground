@@ -75,3 +75,19 @@ target_link_libraries(bundle_adjustment
         Eigen3::Eigen
         rerun_sdk
 )
+
+add_executable(covariance
+    src/05_covariance.cpp
+)
+
+target_include_directories(covariance
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(covariance
+    PRIVATE
+        Ceres::ceres
+        Eigen3::Eigen
+        rerun_sdk
+)

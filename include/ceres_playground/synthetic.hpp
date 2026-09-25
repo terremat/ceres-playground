@@ -127,6 +127,26 @@ inline std::vector<CameraParameters> PerturbCameras(
 }
 
 
+inline std::vector<Eigen::Vector3d> PerturbLandmarks(
+    const std::vector<Eigen::Vector3d>& landmarks,
+    double sigma,
+    std::mt19937& rng) {
+
+    std::normal_distribution<double> noise(
+        0.0,
+        sigma);
+
+    auto perturbed = landmarks;
+
+    for (auto& landmark : perturbed) {
+        landmark.x() += noise(rng);
+        landmark.y() += noise(rng);
+        landmark.z() += noise(rng);
+    }
+
+    return perturbed;
+}
+
 
 inline void AddGaussianNoise(
     std::vector<Observation>& observations,

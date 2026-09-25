@@ -80,6 +80,7 @@ int main() {
 
     // 1. Generate synthetic ground truth.
     constexpr int kNumLandmarks = 100;
+    constexpr double kLandmarkNoiseMeters = 0.1;
     std::mt19937 rng(42);
 
     // Generate 3D landmarks in the world frame
@@ -102,6 +103,19 @@ int main() {
     auto cameras_estimated =
         PerturbCameras(cameras_gt, rng);
 
+    auto landmarks_estimated =
+        PerturbLandmarks(
+            landmarks_gt,
+            kLandmarkNoiseMeters,
+            rng);
+
+    // Use two ground-truth cameras as fixed anchors.
+    cameras_estimated[0] =
+        ToParameters(cameras_gt[0]);
+
+    cameras_estimated[1] =
+        ToParameters(cameras_gt[1]);
+
     const auto cameras_initial = cameras_estimated;  // snapshot before optimization
 
     const double initial_rmse =
@@ -111,7 +125,7 @@ int main() {
             landmarks_gt,
             observations);
 
-    auto landmarks_estimated = landmarks_gt;
+    const auto landmarks_initial = landmarks_estimated;
     
     const double initial_landmark_rmse =
         ComputeLandmarkRMSE(
@@ -144,6 +158,10 @@ int main() {
     // Gauge fix: use camera 0 as the reference frame (anchor) by keeping its parameters constant (no updates during optimization).
     problem.SetParameterBlockConstant(
         cameras_estimated[0].values.data());
+    
+    // Assume baseline is known, so keep camera 1 constant as well.
+    problem.SetParameterBlockConstant(
+        cameras_estimated[1].values.data());
 
     // 5. Configure the solver, just as in lesson 01.
     ceres::Solver::Options options;
@@ -198,11 +216,27 @@ int main() {
     // Compare ground-truth, initial, and optimized poses in separate Rerun groups.
     const auto rec =
         rerun::RecordingStream(
-            "pose_estimation");
+            "bundle_adjustment");
 
     rec.spawn().exit_on_failure();
 
-    LogLandmarks(rec, landmarks_estimated);
+    LogLandmarks(
+        rec,
+        "world/landmarks/gt",
+        landmarks_gt,
+        true);
+
+    LogLandmarks(
+        rec,
+        "world/landmarks/initial",
+        landmarks_initial,
+        true);
+
+    LogLandmarks(
+        rec,
+        "world/landmarks/optimized",
+        landmarks_estimated,
+        true);
 
     for (std::size_t camera_id = 0;
          camera_id < cameras_gt.size();

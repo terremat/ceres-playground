@@ -187,7 +187,7 @@ int main() {
 
     rec.spawn().exit_on_failure();
 
-    LogLandmarks(rec, landmarks_W);
+    LogLandmarks(rec, "world/landmarks/gt", landmarks_W, true);
 
     for (std::size_t camera_id = 0;
          camera_id < cameras_gt.size();

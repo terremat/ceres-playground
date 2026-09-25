@@ -25,10 +25,12 @@ struct ReprojectionError {
     ReprojectionError(
         const Eigen::Vector3d& point_world,
         const Eigen::Vector2d& observed_pixel,
-        const CameraIntrinsics& K)
+        const CameraIntrinsics& K,
+        double sigma_pixels)
         : point_world_(point_world),
           observed_pixel_(observed_pixel),
-          K_(K) {}
+          K_(K),
+          sigma_pixels_(sigma_pixels) {}
 
     template <typename T>
     bool operator()(
@@ -71,10 +73,12 @@ struct ReprojectionError {
 
         // Reprojection error.
         residuals[0] =
-            predicted_u - T(observed_pixel_.x());
+            (predicted_u - T(observed_pixel_.x()))
+            / T(sigma_pixels_);
 
         residuals[1] =
-            predicted_v - T(observed_pixel_.y());
+            (predicted_v - T(observed_pixel_.y()))
+            / T(sigma_pixels_);
 
         return true;
     }
@@ -83,13 +87,14 @@ private:
     Eigen::Vector3d point_world_;
     Eigen::Vector2d observed_pixel_;
     CameraIntrinsics K_;
+    double sigma_pixels_;
 };
 
 int main() {
 
     // 1. Generate synthetic ground truth.
-    constexpr int kNumLandmarks = 10;
-    constexpr double kNoiseSigmaPixels = 1.0;
+    constexpr int kNumLandmarks = 100;
+    constexpr double kNoiseSigmaPixels = 5.0;
     std::mt19937 rng(42);
 
     // Generate 3D landmarks in the world frame
@@ -142,8 +147,8 @@ int main() {
                 new ReprojectionError(
                     point,
                     pixel,
-                    K
-                )
+                    K,
+                    kNoiseSigmaPixels)
             );
 
         problem.AddResidualBlock(

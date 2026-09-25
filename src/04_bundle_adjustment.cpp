@@ -141,6 +141,10 @@ int main() {
         );
     }
 
+    // Gauge fix: use camera 0 as the reference frame (anchor) by keeping its parameters constant (no updates during optimization).
+    problem.SetParameterBlockConstant(
+        cameras_estimated[0].values.data());
+
     // 5. Configure the solver, just as in lesson 01.
     ceres::Solver::Options options;
 
